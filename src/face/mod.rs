@@ -1,0 +1,25 @@
+mod face_centers;
+mod face_face_containment;
+mod face_duplicates;
+mod face_indices;
+mod face_lines;
+mod face_tangents;
+mod face_triangle_indices;
+mod face_vertices;
+mod face_id;
+mod face_planes;
+mod face_uvs;
+mod face_normals;
+
+pub use face_centers::*;
+pub use face_face_containment::*;
+pub use face_duplicates::*;
+pub use face_indices::*;
+pub use face_lines::*;
+pub use face_tangents::*;
+pub use face_triangle_indices::*;
+pub use face_vertices::*;
+pub use face_id::*;
+pub use face_planes::*;
+pub use face_uvs::*;
+pub use face_normals::*;
