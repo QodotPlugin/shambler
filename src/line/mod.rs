@@ -1,12 +1,8 @@
-#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct LineId(pub usize);
+mod line_id;
+mod line_indices;
+mod face_lines;
 
-impl std::fmt::Display for LineId {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-pub struct Line(pub usize, pub usize);
+pub use line_id::*;
+pub use line_indices::*;
+pub use face_lines::*;
 

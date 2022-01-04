@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use super::{FaceBases, FaceId, FaceLines, FacePlanes, FaceVertices};
-use crate::EPSILON;
+use super::{FaceBases, FaceId, FacePlanes, FaceVertices};
+use crate::{line::Lines, EPSILON};
 
 #[derive(Debug, Clone)]
 pub struct FaceFaceContainment(BTreeMap<FaceId, Vec<FaceId>>);
@@ -13,7 +13,7 @@ impl FaceFaceContainment {
         face_planes: &FacePlanes,
         face_bases: &FaceBases,
         face_vertices: &FaceVertices,
-        lines: &FaceLines,
+        lines: &Lines,
     ) -> Self {
         let mut contained_faces = BTreeMap::<FaceId, Vec<FaceId>>::default();
         for lhs_id in faces {
@@ -36,9 +36,11 @@ impl FaceFaceContainment {
                 }
 
                 let mut contained = true;
-                'lines: for (_, line) in &lines[lhs_id] {
-                    let v0 = lhs_verts[line.0];
-                    let v1 = lhs_verts[line.1];
+                'lines: for line_id in &lines.face_lines[lhs_id] {
+                    let line = lines.line_indices[line_id];
+
+                    let v0 = lhs_verts[line.v0];
+                    let v1 = lhs_verts[line.v1];
 
                     let vd0 = nalgebra::vector![v0.dot(&lhs_basis.x), v0.dot(&lhs_basis.y)];
                     let vd1 = nalgebra::vector![v1.dot(&lhs_basis.x), v1.dot(&lhs_basis.y)];

@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use super::{BrushHulls, BrushId};
-use crate::face::{FaceId, FaceLines, FaceVertices};
-use crate::EPSILON;
+use crate::{
+    face::{FaceId, FaceVertices},
+};
 
 #[derive(Debug, Clone)]
 pub struct BrushFaceContainment(BTreeMap<BrushId, Vec<FaceId>>);

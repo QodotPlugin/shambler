@@ -1,32 +1,50 @@
 use std::collections::BTreeMap;
 
-use shalrath::repr::{
-    Brush, BrushPlane, Brushes, Entity, Extension, Properties, TextureOffset, Triangle,
-};
+use shalrath::repr::{Brush, BrushPlane, Entity, Extension, Properties, TextureOffset, Triangle};
 
 use crate::{brush::BrushId, entity::EntityId, face::FaceId, texture::TextureId, Vector2};
+
+pub type Entities = Vec<EntityId>;
+pub type Brushes = Vec<BrushId>;
+pub type Faces = Vec<FaceId>;
+
+pub type PointEntities = Vec<EntityId>;
+
+pub type EntityProperties = BTreeMap<EntityId, Properties>;
+pub type EntityBrushes = BTreeMap<EntityId, Vec<BrushId>>;
+
+pub type BrushFaces = BTreeMap<BrushId, Vec<FaceId>>;
+
+pub type FacePlanes = BTreeMap<FaceId, Triangle>;
+pub type FaceTextures = BTreeMap<FaceId, TextureId>;
+pub type FaceOffsets = BTreeMap<FaceId, TextureOffset>;
+pub type FaceAngles = BTreeMap<FaceId, f32>;
+pub type FaceScales = BTreeMap<FaceId, Vector2>;
+pub type FaceExtensions = BTreeMap<FaceId, Extension>;
+
+pub type Textures = BTreeMap<TextureId, String>;
 
 /// Struct-of-arrays representation of a [`shalrath::repr::Map`]
 #[derive(Debug, Default, Clone)]
 pub struct GeoMap {
-    pub entities: Vec<EntityId>,
-    pub brushes: Vec<BrushId>,
-    pub faces: Vec<FaceId>,
+    pub entities: Entities,
+    pub brushes: Brushes,
+    pub faces: Faces,
 
-    pub textures: BTreeMap<TextureId, String>,
+    pub textures: Textures,
 
-    pub entity_properties: BTreeMap<EntityId, Properties>,
-    pub entity_brushes: BTreeMap<EntityId, Vec<BrushId>>,
-    pub point_entities: Vec<EntityId>,
+    pub entity_properties: EntityProperties,
+    pub entity_brushes: EntityBrushes,
+    pub point_entities: PointEntities,
 
-    pub brush_faces: BTreeMap<BrushId, Vec<FaceId>>,
+    pub brush_faces: BrushFaces,
 
-    pub face_planes: BTreeMap<FaceId, Triangle>,
-    pub face_textures: BTreeMap<FaceId, TextureId>,
-    pub face_offsets: BTreeMap<FaceId, TextureOffset>,
-    pub face_angles: BTreeMap<FaceId, f32>,
-    pub face_scales: BTreeMap<FaceId, Vector2>,
-    pub face_extensions: BTreeMap<FaceId, Extension>,
+    pub face_planes: FacePlanes,
+    pub face_textures: FaceTextures,
+    pub face_offsets: FaceOffsets,
+    pub face_angles: FaceAngles,
+    pub face_scales: FaceScales,
+    pub face_extensions: FaceExtensions,
 }
 
 impl GeoMap {
@@ -43,7 +61,7 @@ impl GeoMap {
         let mut entity_properties = BTreeMap::<EntityId, Properties>::default();
         let mut entity_brushes = BTreeMap::<EntityId, Vec<BrushId>>::default();
 
-        let mut brush_planes = BTreeMap::<BrushId, Vec<FaceId>>::default();
+        let mut brush_faces = BTreeMap::<BrushId, Vec<FaceId>>::default();
 
         let mut face_planes = BTreeMap::<FaceId, Triangle>::default();
         let mut face_textures = BTreeMap::<FaceId, TextureId>::default();
@@ -56,7 +74,7 @@ impl GeoMap {
 
         for Entity {
             properties,
-            brushes: Brushes(bs),
+            brushes: shalrath::repr::Brushes(bs),
         } in map.into_iter()
         {
             let entity_id = EntityId(entity_head);
@@ -103,7 +121,7 @@ impl GeoMap {
                     face_angles.insert(plane_id, angle);
                     face_scales.insert(plane_id, nalgebra::vector![scale_x, scale_y]);
                     face_extensions.insert(plane_id, extension);
-                    brush_planes.entry(brush_id).or_default().push(plane_id);
+                    brush_faces.entry(brush_id).or_default().push(plane_id);
                 }
             }
         }
@@ -119,14 +137,6 @@ impl GeoMap {
             .map(|(k, v)| (v, k))
             .collect::<BTreeMap<_, _>>();
 
-        println!(
-            "Point Entities: {:#?}",
-            point_entities
-                .iter()
-                .map(|entity_id| (*entity_id, &entity_properties[entity_id]))
-                .collect::<Vec<_>>()
-        );
-
         GeoMap {
             entities,
             brushes,
@@ -135,7 +145,7 @@ impl GeoMap {
             entity_properties,
             entity_brushes,
             point_entities,
-            brush_faces: brush_planes,
+            brush_faces,
             face_planes,
             face_textures,
             face_offsets,
