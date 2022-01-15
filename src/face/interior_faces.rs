@@ -1,21 +1,20 @@
 use std::collections::BTreeSet;
 
 use super::{FaceDuplicates, FaceId, FaceVertices};
-use crate::{line::Lines, BrushFaces, EntityBrushes, Vector3, EPSILON};
+use crate::{face::FaceLines, line::Lines, BrushFaces, EntityBrushes, Vector3, EPSILON};
 
 #[derive(Debug, Clone)]
 pub struct InteriorFaces(BTreeSet<FaceId>);
 
 impl InteriorFaces {
     pub fn new(
+        lines: &Lines,
         entity_brushes: &EntityBrushes,
         brush_faces: &BrushFaces,
         face_duplicates: &FaceDuplicates,
         face_vertices: &FaceVertices,
-        face_line_indices: &Lines,
+        face_lines: &FaceLines,
     ) -> Self {
-        let line_inds = &face_line_indices.line_indices;
-
         let mut interior_faces = BTreeSet::default();
 
         // For each entity's set of brushes
@@ -28,7 +27,7 @@ impl InteriorFaces {
                 for face_a in faces_a.iter().filter(|f| !face_duplicates.contains(f)) {
                     // Fetch LHS vertex and line data
                     let verts_a = face_vertices.vertices(&face_a).unwrap();
-                    let lines_a = face_line_indices.face_lines.get(&face_a).unwrap();
+                    let lines_a = face_lines.get(&face_a).unwrap();
 
                     // Calculate whether this is an interior face
                     let mut connected_lines = 0;
@@ -36,11 +35,11 @@ impl InteriorFaces {
                     // Iterate over LHS face lines
                     'line_a: for line_id_a in lines_a.iter() {
                         // Fetch LHS line indices
-                        let line_a = line_inds[line_id_a];
+                        let line_a = lines[line_id_a];
 
                         // Fetch LHS line vertices
-                        let v0_a = verts_a[line_a.v0];
-                        let v1_a = verts_a[line_a.v1];
+                        let v0_a = verts_a[line_a.i0];
+                        let v1_a = verts_a[line_a.i1];
 
                         // Iterate over the entity's brushes again to compare
                         for brush_b in brushes {
@@ -55,16 +54,16 @@ impl InteriorFaces {
                             for face_b in faces_b.iter().filter(|f| !face_duplicates.contains(f)) {
                                 // Fetch RHS vertex and line data
                                 let verts_b = face_vertices.vertices(&face_b).unwrap();
-                                let lines_b = face_line_indices.face_lines.get(&face_b).unwrap();
+                                let lines_b = face_lines.get(&face_b).unwrap();
 
                                 // Iterate over RHS face lines
                                 for line_id_b in lines_b.iter() {
                                     // Fetch RHS line indices
-                                    let line_b = line_inds[line_id_b];
+                                    let line_b = lines[line_id_b];
 
                                     // Fetch RHS line vertices
-                                    let v0_b = verts_b[line_b.v0];
-                                    let v1_b = verts_b[line_b.v1];
+                                    let v0_b = verts_b[line_b.i0];
+                                    let v1_b = verts_b[line_b.i1];
 
                                     // If the lines are equivalent, this line is connected
                                     if line_eq(v0_a, v1_a, v0_b, v1_b) {
