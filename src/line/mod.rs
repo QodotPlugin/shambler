@@ -1,10 +1,12 @@
 mod line_id;
 mod line_indices;
 mod line_faces;
+mod line_duplicates;
 
 pub use line_id::*;
 pub use line_indices::*;
 pub use line_faces::*;
+pub use line_duplicates::*;
 
 use std::collections::BTreeMap;
 
