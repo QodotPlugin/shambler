@@ -5,7 +5,7 @@ use crate::{FacePlanes, EPSILON};
 
 /// The set of opposing faces that share the same set of vertices
 #[derive(Debug, Clone)]
-pub struct FaceDuplicates(BTreeSet<FaceId>);
+pub struct FaceDuplicates(BTreeSet<(FaceId, FaceId)>);
 
 impl FaceDuplicates {
     pub fn new(
@@ -13,7 +13,7 @@ impl FaceDuplicates {
         face_planes: &FacePlanes,
         face_vertices: &FaceVertices,
     ) -> Self {
-        let mut duplicate_faces = BTreeSet::<FaceId>::default();
+        let mut duplicate_faces = BTreeSet::<(FaceId, FaceId)>::default();
         for lhs_id in planes {
             let lhs_verts = face_vertices.vertices(&lhs_id).unwrap();
             let lhs_plane = &face_planes[&lhs_id];
@@ -55,20 +55,20 @@ impl FaceDuplicates {
                     continue;
                 }
 
-                // Add planes to set
-                duplicate_faces.insert(*lhs_id);
-                duplicate_faces.insert(*rhs_id);
+                // Add faces to set
+                duplicate_faces.insert((*lhs_id, *rhs_id));
+                duplicate_faces.insert((*rhs_id, *lhs_id));
             }
         }
 
         FaceDuplicates(duplicate_faces)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &FaceId> {
+    pub fn iter(&self) -> impl Iterator<Item = &(FaceId, FaceId)> {
         self.0.iter()
     }
 
     pub fn contains(&self, face_id: &FaceId) -> bool {
-        self.0.contains(face_id)
+        self.0.iter().find(|(a, b)| a == face_id || b == face_id).is_some()
     }
 }
