@@ -3,7 +3,7 @@ use std::{cmp::Ordering, collections::BTreeMap};
 use shalrath::repr::Triangle;
 
 use super::{FaceCenters, FaceId, FaceVertices};
-use crate::{vector3_from_point, FacePlanes, Plane3d, Vector3};
+use crate::{vector3_from_point, FacePlanes};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FaceWinding {

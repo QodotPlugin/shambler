@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use super::BrushId;
-use crate::{ConvexHull, Plane3d, FacePlanes, face::FaceId};
+use crate::{ConvexHull, FacePlanes, face::FaceId};
 
 #[derive(Debug, Clone)]
 pub struct BrushHulls(BTreeMap<BrushId, ConvexHull>);

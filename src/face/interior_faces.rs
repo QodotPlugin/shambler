@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use super::{FaceDuplicates, FaceId, FaceNormals, FaceVertices};
+use super::{FaceDuplicates, FaceId, FaceVertices};
 use crate::{line::Lines, BrushFaces, EntityBrushes, Vector3, EPSILON};
 
 #[derive(Debug, Clone)]

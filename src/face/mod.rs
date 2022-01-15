@@ -9,6 +9,7 @@ mod face_id;
 mod face_planes;
 mod face_uvs;
 mod face_normals;
+mod face_brushes;
 mod interior_faces;
 
 pub use face_centers::*;
@@ -22,4 +23,5 @@ pub use face_id::*;
 pub use face_planes::*;
 pub use face_uvs::*;
 pub use face_normals::*;
+pub use face_brushes::*;
 pub use interior_faces::*;

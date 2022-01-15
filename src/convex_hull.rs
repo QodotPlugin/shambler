@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use crate::{brush::BrushId, Plane3d, Vector3, EPSILON};
+use crate::{Plane3d, Vector3, EPSILON};
 
 /// A convex hull described by a set of planes
 #[derive(Debug, Clone)]
