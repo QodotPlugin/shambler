@@ -1,40 +1,28 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use crate::face::FaceId;
 
 use super::FaceIndices;
 
-#[derive(Debug, Clone)]
-pub struct FaceTriangleIndices(BTreeMap<FaceId, Vec<usize>>);
+pub enum FaceTriangleIndicesTag {}
 
-impl FaceTriangleIndices {
-    /// Generate triangle indices
-    pub fn new(face_indices: &FaceIndices) -> Self {
-        let mut plane_indices = BTreeMap::<FaceId, Vec<usize>>::default();
-        for (plane_id, indices) in face_indices {
-            if indices.len() < 3 {
-                continue;
-            }
+pub type FaceTriangleIndices = Usage<FaceTriangleIndicesTag, BTreeMap<FaceId, Vec<usize>>>;
 
-            for i in 0..indices.len() - 2 {
-                plane_indices
-                    .entry(*plane_id)
-                    .or_default()
-                    .extend([indices[0], indices[i + 1], indices[i + 2]].iter().copied());
-            }
-        }
-        FaceTriangleIndices(plane_indices)
-    }
-
-    pub fn get(&self, face_id: &FaceId) -> Option<&Vec<usize>> {
-        self.0.get(face_id)
-    }
-}
-
-impl std::ops::Index<&FaceId> for FaceTriangleIndices {
-    type Output = Vec<usize>;
-
-    fn index(&self, index: &FaceId) -> &Self::Output {
-        &self.0[index]
-    }
+/// Generate triangle indices
+pub fn face_triangle_indices(face_indices: &FaceIndices) -> FaceTriangleIndices {
+    face_indices
+        .par_iter()
+        .filter(|(_, indices)| indices.len() >= 3)
+        .map(|(face_id, indices)| {
+            (
+                *face_id,
+                (0..indices.len() - 2)
+                    .flat_map(|i| [indices[0], indices[i + 1], indices[i + 2]])
+                    .collect(),
+            )
+        })
+        .collect()
 }

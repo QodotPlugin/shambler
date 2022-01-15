@@ -1,37 +1,24 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use super::BrushId;
-use crate::{ConvexHull, FacePlanes, face::FaceId};
+use crate::{face::FaceId, ConvexHull, FacePlanes};
 
-#[derive(Debug, Clone)]
-pub struct BrushHulls(BTreeMap<BrushId, ConvexHull>);
+pub enum BrushHullsTag {}
 
-impl BrushHulls {
-    pub fn new(
-        brush_planes: &BTreeMap<BrushId, Vec<FaceId>>,
-        geo_planes: &FacePlanes,
-    ) -> Self {
-        let mut brush_hulls = BTreeMap::<BrushId, ConvexHull>::default();
-        for (brush_id, plane_ids) in brush_planes {
-            let mut planes = vec![];
-            for plane_id in plane_ids {
-                let plane = &geo_planes[plane_id];
-                planes.push(*plane);
-            }
-            brush_hulls.insert(*brush_id, planes.into());
-        }
-        BrushHulls(brush_hulls)
-    }
+pub type BrushHulls = Usage<BrushHullsTag, BTreeMap<BrushId, ConvexHull>>;
 
-    pub fn get(&self, brush_id: &BrushId) -> Option<&ConvexHull> {
-        self.0.get(brush_id)
-    }
-}
-
-impl std::ops::Index<&BrushId> for BrushHulls {
-    type Output = ConvexHull;
-
-    fn index(&self, index: &BrushId) -> &Self::Output {
-        &self.0[index]
-    }
+pub fn brush_hulls(brush_planes: &BTreeMap<BrushId, Vec<FaceId>>, geo_planes: &FacePlanes) -> BrushHulls {
+    brush_planes
+        .par_iter()
+        .map(|(brush_id, plane_ids)| {
+            let planes = plane_ids
+                .par_iter()
+                .map(|plane_id| geo_planes[plane_id])
+                .collect::<Vec<_>>();
+            (*brush_id, planes.into())
+        })
+        .collect()
 }

@@ -1,74 +1,73 @@
 use std::collections::BTreeSet;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use super::{FaceId, FaceVertices};
 use crate::{FacePlanes, EPSILON};
 
-/// The set of opposing faces that share the same set of vertices
-#[derive(Debug, Clone)]
-pub struct FaceDuplicates(BTreeSet<(FaceId, FaceId)>);
+pub enum FaceDuplicatesTag {}
 
-impl FaceDuplicates {
-    pub fn new(
-        planes: &Vec<FaceId>,
-        face_planes: &FacePlanes,
-        face_vertices: &FaceVertices,
-    ) -> Self {
-        let mut duplicate_faces = BTreeSet::<(FaceId, FaceId)>::default();
-        for lhs_id in planes {
-            let lhs_verts = face_vertices.vertices(&lhs_id).unwrap();
+/// The set of opposing faces that share the same set of vertices
+pub type FaceDuplicates = Usage<FaceDuplicatesTag, BTreeSet<(FaceId, FaceId)>>;
+
+pub fn face_duplicates(
+    planes: &Vec<FaceId>,
+    face_planes: &FacePlanes,
+    face_vertices: &FaceVertices,
+) -> FaceDuplicates {
+    planes
+        .par_iter()
+        .flat_map(|lhs_id| {
+            let lhs_verts = &face_vertices[&lhs_id];
             let lhs_plane = &face_planes[&lhs_id];
 
-            for rhs_id in planes {
-                let rhs_verts = face_vertices.vertices(&rhs_id).unwrap();
-                let rhs_plane = &face_planes[&rhs_id];
+            planes
+                .par_iter()
+                .flat_map(move |rhs_id| {
+                    let rhs_verts = &face_vertices[&rhs_id];
+                    let rhs_plane = &face_planes[&rhs_id];
 
-                // Skip comparing with self
-                if lhs_id == rhs_id {
-                    continue;
-                }
-
-                // Skip faces that don't lie on the same plane
-                if !lhs_plane.opposes(rhs_plane) {
-                    continue;
-                }
-
-                // Skip comparing with faces of different vertex count
-                if lhs_verts.len() != rhs_verts.len() {
-                    continue;
-                }
-
-                let vert_count = lhs_verts.len();
-
-                // Compare vertices
-                let mut identical_count = 0;
-                for lhs_vert in lhs_verts {
-                    for rhs_vert in rhs_verts {
-                        let delta = (lhs_vert - rhs_vert).magnitude();
-
-                        if delta < EPSILON {
-                            identical_count += 1;
-                        }
+                    // Skip comparing with self
+                    if lhs_id == rhs_id {
+                        return None;
                     }
-                }
 
-                if identical_count != vert_count {
-                    continue;
-                }
+                    // Skip faces that don't lie on the same plane
+                    if !lhs_plane.opposes(rhs_plane) {
+                        return None;
+                    }
 
-                // Add faces to set
-                duplicate_faces.insert((*lhs_id, *rhs_id));
-                duplicate_faces.insert((*rhs_id, *lhs_id));
-            }
-        }
+                    // Skip comparing with faces of different vertex count
+                    if lhs_verts.len() != rhs_verts.len() {
+                        return None;
+                    }
 
-        FaceDuplicates(duplicate_faces)
-    }
+                    let vert_count = lhs_verts.len();
 
-    pub fn iter(&self) -> impl Iterator<Item = &(FaceId, FaceId)> {
-        self.0.iter()
-    }
+                    // Compare vertices
+                    let identical_count: usize = lhs_verts
+                        .par_iter()
+                        .flat_map(|lhs_vert| {
+                            rhs_verts.par_iter().map(move |rhs_vert| {
+                                let delta = (lhs_vert - rhs_vert).magnitude();
+                                if delta < EPSILON {
+                                    1
+                                } else {
+                                    0
+                                }
+                            })
+                        })
+                        .sum();
 
-    pub fn contains(&self, face_id: &FaceId) -> bool {
-        self.0.iter().find(|(a, b)| a == face_id || b == face_id).is_some()
-    }
+                    if identical_count != vert_count {
+                        return None;
+                    }
+
+                    // Add faces to set
+                    Some([(*lhs_id, *rhs_id), (*rhs_id, *lhs_id)])
+                })
+                .flatten()
+        })
+        .collect()
 }

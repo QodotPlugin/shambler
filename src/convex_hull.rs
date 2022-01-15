@@ -11,9 +11,9 @@ impl<'a, T: IntoIterator<Item = Plane3d>> From<T> for ConvexHull {
 }
 
 impl ConvexHull {
-    pub fn contains(&self, vertex: Vector3) -> bool {
+    pub fn contains(&self, vertex: &Vector3) -> bool {
         for plane in &self.0 {
-            let proj = plane.normal().dot(&vertex);
+            let proj = plane.normal().dot(vertex);
             if proj > plane.distance() && proj - plane.distance() > EPSILON {
                 return false;
             }

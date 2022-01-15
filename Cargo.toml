@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
-nalgebra = "0.29.0"
+nalgebra = "0.30.1"
+rayon = "1.5.1"
+
 shalrath = { path = "../shalrath" }
 #shalrath = "0.2.0"
+
+usage = { path = "../../../usage", features = ["rayon"] }
+#usage = "1.1.0"

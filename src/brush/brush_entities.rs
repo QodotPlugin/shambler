@@ -1,17 +1,17 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use crate::{brush::BrushId, entity::EntityId, EntityBrushes};
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct BrushEntities(pub BTreeMap<BrushId, EntityId>);
+pub enum BrushEntitiesTag {}
 
-impl BrushEntities {
-    pub fn new(entity_brushes: &EntityBrushes) -> Self {
-        BrushEntities(
-            entity_brushes
-                .iter()
-                .flat_map(|(entity, brushes)| brushes.iter().map(move |brush| (*brush, *entity)))
-                .collect(),
-        )
-    }
+pub type BrushEntities = Usage<BrushEntitiesTag, BTreeMap<BrushId, EntityId>>;
+
+pub fn brush_entities(entity_brushes: &EntityBrushes) -> BrushEntities {
+    entity_brushes
+        .par_iter()
+        .flat_map(|(entity, brushes)| brushes.par_iter().map(move |brush| (*brush, *entity)))
+        .collect()
 }

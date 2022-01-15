@@ -1,25 +1,32 @@
-mod line_id;
-mod line_indices;
-mod line_faces;
 mod line_duplicates;
+mod line_faces;
+mod line_id;
 
-pub use line_id::*;
-pub use line_indices::*;
-pub use line_faces::*;
 pub use line_duplicates::*;
+pub use line_faces::*;
+pub use line_id::*;
+use usage::Usage;
 
 use std::collections::BTreeMap;
 
-use crate::face::{FaceId, FaceIndices, FaceLines};
+use crate::face::{FaceIndices, FaceLines};
 
-pub type Lines = BTreeMap<LineId, Line>;
+#[derive(Debug, Copy, Clone)]
+pub struct Line {
+    pub i0: usize,
+    pub i1: usize,
+}
+
+pub enum LinesTag {}
+pub type Lines = Usage<LinesTag, BTreeMap<LineId, Line>>;
 
 pub fn lines(face_indices: &FaceIndices) -> (Lines, FaceLines) {
     let mut line_head = 0;
-    let mut face_lines = BTreeMap::<FaceId, Vec<LineId>>::default();
-    let mut line_indices = BTreeMap::<LineId, Line>::default();
 
-    for (face_id, indices) in face_indices {
+    let mut face_lines = FaceLines::default();
+    let mut line_indices = Lines::default();
+
+    for (face_id, indices) in face_indices.iter() {
         if indices.len() < 2 {
             continue;
         }

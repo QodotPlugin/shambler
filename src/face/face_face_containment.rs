@@ -1,83 +1,75 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use super::{FaceBases, FaceId, FacePlanes, FaceVertices};
 use crate::{face::FaceLines, line::Lines, EPSILON};
 
-#[derive(Debug, Clone)]
-pub struct FaceFaceContainment(BTreeMap<FaceId, Vec<FaceId>>);
+pub enum FaceFaceContainmentTag {}
 
-impl FaceFaceContainment {
-    // Find contained faces
-    pub fn new(
-        faces: &Vec<FaceId>,
-        lines: &Lines,
-        face_planes: &FacePlanes,
-        face_bases: &FaceBases,
-        face_vertices: &FaceVertices,
-        face_lines: &FaceLines,
-    ) -> Self {
-        let mut contained_faces = BTreeMap::<FaceId, Vec<FaceId>>::default();
-        for lhs_id in faces {
-            let lhs_verts = face_vertices.vertices(&lhs_id).unwrap();
+pub type FaceFaceContainment = Usage<FaceFaceContainmentTag, BTreeMap<FaceId, Vec<FaceId>>>;
+
+// Find contained faces
+pub fn face_face_containment(
+    faces: &Vec<FaceId>,
+    lines: &Lines,
+    face_planes: &FacePlanes,
+    face_bases: &FaceBases,
+    face_vertices: &FaceVertices,
+    face_lines: &FaceLines,
+) -> FaceFaceContainment {
+    faces
+        .par_iter()
+        .flat_map(|lhs_id| {
+            let lhs_verts = &face_vertices[&lhs_id];
             let lhs_plane = &face_planes[&lhs_id];
             let lhs_basis = &face_bases[&lhs_id];
 
-            for rhs_id in faces {
-                let rhs_verts = face_vertices.vertices(&rhs_id).unwrap();
-                let rhs_plane = &face_planes[&rhs_id];
+            faces
+                .par_iter()
+                .flat_map(move |rhs_id| {
+                    let mut contained_faces = BTreeMap::<FaceId, Vec<FaceId>>::default();
+                    let rhs_verts = &face_vertices[&rhs_id];
+                    let rhs_plane = &face_planes[&rhs_id];
 
-                // Skip comparing with self
-                if lhs_id == rhs_id {
-                    continue;
-                }
-
-                // Skip faces that don't lie on the same plane
-                if !lhs_plane.opposes(rhs_plane) {
-                    continue;
-                }
-
-                let mut contained = true;
-                'lines: for line_id in &face_lines[lhs_id] {
-                    let line = lines[line_id];
-
-                    let v0 = lhs_verts[line.i0];
-                    let v1 = lhs_verts[line.i1];
-
-                    let vd0 = nalgebra::vector![v0.dot(&lhs_basis.x), v0.dot(&lhs_basis.y)];
-                    let vd1 = nalgebra::vector![v1.dot(&lhs_basis.x), v1.dot(&lhs_basis.y)];
-
-                    let u = (vd1 - vd0).normalize();
-                    let v = nalgebra::vector![-u.y, u.x];
-
-                    for vert in rhs_verts {
-                        let vert =
-                            nalgebra::vector![vert.dot(&lhs_basis.x), vert.dot(&lhs_basis.y)];
-                        if vert.dot(&v) > vd0.dot(&v) + EPSILON {
-                            contained = false;
-                            break 'lines;
-                        }
+                    // Skip comparing with self
+                    if lhs_id == rhs_id {
+                        return None;
                     }
-                }
 
-                if !contained {
-                    continue;
-                }
+                    // Skip faces that don't lie on the same plane
+                    if !lhs_plane.opposes(rhs_plane) {
+                        return None;
+                    }
 
-                contained_faces.entry(*lhs_id).or_default().push(*rhs_id);
-            }
-        }
-        FaceFaceContainment(contained_faces)
-    }
+                    let contained = &face_lines[lhs_id].par_iter().all(|line_id| {
+                        let line = lines[line_id];
 
-    pub fn get_contained_faces(&self, face_id: &FaceId) -> Option<&Vec<FaceId>> {
-        self.0.get(face_id)
-    }
+                        let v0 = lhs_verts[line.i0];
+                        let v1 = lhs_verts[line.i1];
 
-    pub fn is_contained(&self, face_id: &FaceId) -> bool {
-        self.0.values().flatten().any(|id| id == face_id)
-    }
+                        let vd0 = nalgebra::vector![v0.dot(&lhs_basis.x), v0.dot(&lhs_basis.y)];
+                        let vd1 = nalgebra::vector![v1.dot(&lhs_basis.x), v1.dot(&lhs_basis.y)];
 
-    pub fn iter(&self) -> impl Iterator<Item = (&FaceId, &Vec<FaceId>)> {
-        self.0.iter()
-    }
+                        let u = (vd1 - vd0).normalize();
+                        let v = nalgebra::vector![-u.y, u.x];
+
+                        rhs_verts.par_iter().all(|vert| {
+                            let vert =
+                                nalgebra::vector![vert.dot(&lhs_basis.x), vert.dot(&lhs_basis.y)];
+                            vert.dot(&v) > vd0.dot(&v) + EPSILON
+                        })
+                    });
+
+                    if !contained {
+                        return None;
+                    }
+
+                    contained_faces.entry(*lhs_id).or_default().push(*rhs_id);
+                    Some(contained_faces)
+                })
+                .flatten()
+        })
+        .collect()
 }

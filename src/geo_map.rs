@@ -1,28 +1,46 @@
 use std::collections::BTreeMap;
 
-use shalrath::repr::{Brush, BrushPlane, Entity, Extension, Properties, TextureOffset, Triangle};
+use shalrath::repr::{
+    Brush, BrushPlane, Entity, Extension, Properties, TextureOffset, TrianglePlane,
+};
+use usage::Usage;
 
 use crate::{brush::BrushId, entity::EntityId, face::FaceId, texture::TextureId, Vector2};
 
-pub type Entities = Vec<EntityId>;
-pub type Brushes = Vec<BrushId>;
-pub type Faces = Vec<FaceId>;
+pub enum EntitiesTag {}
+pub enum BrushesTag {}
+pub enum FacesTag {}
+pub enum PointEntitiesTag {}
+pub enum EntityPropertiesTag {}
+pub enum EntityBrushesTag {}
+pub enum BrushFacesTag {}
+pub enum FaceTrianglePlanesTag {}
+pub enum FaceTexturesTag {}
+pub enum FaceOffsetsTag {}
+pub enum FaceAnglesTag {}
+pub enum FaceScalesTag {}
+pub enum FaceExtensionsTag {}
+pub enum TexturesTag {}
 
-pub type PointEntities = Vec<EntityId>;
+pub type Entities = Usage<EntitiesTag, Vec<EntityId>>;
+pub type Brushes = Usage<BrushesTag, Vec<BrushId>>;
+pub type Faces = Usage<FacesTag, Vec<FaceId>>;
 
-pub type EntityProperties = BTreeMap<EntityId, Properties>;
-pub type EntityBrushes = BTreeMap<EntityId, Vec<BrushId>>;
+pub type PointEntities = Usage<PointEntitiesTag, Vec<EntityId>>;
 
-pub type BrushFaces = BTreeMap<BrushId, Vec<FaceId>>;
+pub type EntityProperties = Usage<EntityPropertiesTag, BTreeMap<EntityId, Properties>>;
+pub type EntityBrushes = Usage<EntityBrushesTag, BTreeMap<EntityId, Vec<BrushId>>>;
 
-pub type FacePlanes = BTreeMap<FaceId, Triangle>;
-pub type FaceTextures = BTreeMap<FaceId, TextureId>;
-pub type FaceOffsets = BTreeMap<FaceId, TextureOffset>;
-pub type FaceAngles = BTreeMap<FaceId, f32>;
-pub type FaceScales = BTreeMap<FaceId, Vector2>;
-pub type FaceExtensions = BTreeMap<FaceId, Extension>;
+pub type BrushFaces = Usage<BrushFacesTag, BTreeMap<BrushId, Vec<FaceId>>>;
 
-pub type Textures = BTreeMap<TextureId, String>;
+pub type FaceTrianglePlanes = Usage<FaceTrianglePlanesTag, BTreeMap<FaceId, TrianglePlane>>;
+pub type FaceTextures = Usage<FaceTexturesTag, BTreeMap<FaceId, TextureId>>;
+pub type FaceOffsets = Usage<FaceOffsetsTag, BTreeMap<FaceId, TextureOffset>>;
+pub type FaceAngles = Usage<FaceAnglesTag, BTreeMap<FaceId, f32>>;
+pub type FaceScales = Usage<FaceScalesTag, BTreeMap<FaceId, Vector2>>;
+pub type FaceExtensions = Usage<FaceExtensionsTag, BTreeMap<FaceId, Extension>>;
+
+pub type Textures = Usage<TexturesTag, BTreeMap<TextureId, String>>;
 
 /// Struct-of-arrays representation of a [`shalrath::repr::Map`]
 #[derive(Debug, Default, Clone)]
@@ -39,7 +57,7 @@ pub struct GeoMap {
 
     pub brush_faces: BrushFaces,
 
-    pub face_planes: FacePlanes,
+    pub face_planes: FaceTrianglePlanes,
     pub face_textures: FaceTextures,
     pub face_offsets: FaceOffsets,
     pub face_angles: FaceAngles,
@@ -54,21 +72,21 @@ impl GeoMap {
         let mut plane_head = 0;
         let mut texture_head = 0;
 
-        let mut entities = Vec::<EntityId>::default();
-        let mut brushes = Vec::<BrushId>::default();
-        let mut faces = Vec::<FaceId>::default();
+        let mut entities = Entities::default();
+        let mut brushes = Brushes::default();
+        let mut faces = Faces::default();
 
-        let mut entity_properties = BTreeMap::<EntityId, Properties>::default();
-        let mut entity_brushes = BTreeMap::<EntityId, Vec<BrushId>>::default();
+        let mut entity_properties = EntityProperties::default();
+        let mut entity_brushes = EntityBrushes::default();
 
-        let mut brush_faces = BTreeMap::<BrushId, Vec<FaceId>>::default();
+        let mut brush_faces = BrushFaces::default();
 
-        let mut face_planes = BTreeMap::<FaceId, Triangle>::default();
-        let mut face_textures = BTreeMap::<FaceId, TextureId>::default();
-        let mut face_offsets = BTreeMap::<FaceId, TextureOffset>::default();
-        let mut face_angles = BTreeMap::<FaceId, f32>::default();
-        let mut face_scales = BTreeMap::<FaceId, Vector2>::default();
-        let mut face_extensions = BTreeMap::<FaceId, Extension>::default();
+        let mut face_planes = FaceTrianglePlanes::default();
+        let mut face_textures = FaceTextures::default();
+        let mut face_offsets = FaceOffsets::default();
+        let mut face_angles = FaceAngles::default();
+        let mut face_scales = FaceScales::default();
+        let mut face_extensions = FaceExtensions::default();
 
         let mut textures = BTreeMap::<String, TextureId>::new();
 
@@ -126,7 +144,7 @@ impl GeoMap {
             }
         }
 
-        let point_entities: Vec<EntityId> = entities
+        let point_entities = entities
             .iter()
             .filter(|entity_id| !entity_brushes.contains_key(entity_id))
             .copied()
@@ -135,7 +153,7 @@ impl GeoMap {
         let textures = textures
             .into_iter()
             .map(|(k, v)| (v, k))
-            .collect::<BTreeMap<_, _>>();
+            .collect();
 
         GeoMap {
             entities,

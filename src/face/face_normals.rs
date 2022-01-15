@@ -1,39 +1,44 @@
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use crate::Vector3;
 use std::collections::BTreeMap;
 
-use super::{FaceId, FacePlanes, FaceVertices};
+use super::{FaceId, FacePlanes, FaceVertexPlanes, FaceVertices};
 
-#[derive(Debug, Clone)]
-pub struct FaceNormals(BTreeMap<FaceId, Vec<Vector3>>);
+pub enum FaceNormalsTag {}
 
-impl FaceNormals {
-    /// Copy normals from face planes
-    pub fn flat(face_vertices: &FaceVertices, face_planes: &FacePlanes) -> Self {
-        let mut face_normals = BTreeMap::<FaceId, Vec<Vector3>>::default();
+pub type FaceNormals = Usage<FaceNormalsTag, BTreeMap<FaceId, Vec<Vector3>>>;
 
-        for (face_id, vertices) in face_vertices.iter_vertices() {
+/// Copy normals from face planes
+pub fn normals_flat(face_vertices: &FaceVertices, face_planes: &FacePlanes) -> FaceNormals {
+    face_vertices
+        .par_iter()
+        .map(|(face_id, vertices)| {
             let face_plane = &face_planes[face_id];
 
-            face_normals.insert(
+            (
                 *face_id,
-                vertices.iter().map(|_| *face_plane.normal()).collect(),
-            );
-        }
+                vertices.par_iter().map(|_| *face_plane.normal()).collect(),
+            )
+        })
+        .collect()
+}
 
-        FaceNormals(face_normals)
-    }
-
-    /// Average normals from vertex planes with each plane contributing equally
-    ///
-    /// Good for spherical objects
-    pub fn phong_averaged(face_vertices: &FaceVertices, face_planes: &FacePlanes) -> Self {
-        let mut face_normals = BTreeMap::<FaceId, Vec<Vector3>>::default();
-
-        for (face_id, vertex_planes) in face_vertices.iter_vertex_planes() {
-            face_normals.insert(
+/// Average normals from vertex planes with each plane contributing equally
+///
+/// Good for spherical objects
+pub fn normals_phong_averaged(
+    face_vertex_planes: &FaceVertexPlanes,
+    face_planes: &FacePlanes,
+) -> FaceNormals {
+    face_vertex_planes
+        .par_iter()
+        .map(|(face_id, vertex_planes)| {
+            (
                 *face_id,
                 vertex_planes
-                    .iter()
+                    .par_iter()
                     .map(|(p0, p1, p2)| {
                         let p0 = &face_planes[p0];
                         let p1 = &face_planes[p1];
@@ -41,27 +46,26 @@ impl FaceNormals {
                         (p0.normal() + p1.normal() + p2.normal()).normalize()
                     })
                     .collect(),
-            );
-        }
+            )
+        })
+        .collect()
+}
 
-        FaceNormals(face_normals)
-    }
-
-    /// Average normals from vertex planes using an angular threshold given in degrees
-    ///
-    /// Good for cylindrical objects
-    pub fn phong_threshold(
-        face_vertices: &FaceVertices,
-        face_planes: &FacePlanes,
-        threshold: f32,
-    ) -> Self {
-        let mut face_normals = BTreeMap::<FaceId, Vec<Vector3>>::default();
-
-        for (face_id, vertex_planes) in face_vertices.iter_vertex_planes() {
-            face_normals.insert(
+/// Average normals from vertex planes using an angular threshold given in degrees
+///
+/// Good for cylindrical objects
+pub fn normals_phong_threshold(
+    face_vertex_planes: &FaceVertexPlanes,
+    face_planes: &FacePlanes,
+    threshold: f32,
+) -> FaceNormals {
+    face_vertex_planes
+        .par_iter()
+        .map(|(face_id, vertex_planes)| {
+            (
                 *face_id,
                 vertex_planes
-                    .iter()
+                    .par_iter()
                     .map(|(p0, p1, p2)| {
                         let p0 = &face_planes[p0];
                         let p1 = &face_planes[p1];
@@ -80,45 +84,7 @@ impl FaceNormals {
                         normal.normalize()
                     })
                     .collect(),
-            );
-        }
-
-        FaceNormals(face_normals)
-    }
-
-    pub fn get(&self, face_id: &FaceId) -> Option<&Vec<Vector3>> {
-        self.0.get(face_id)
-    }
-
-    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
-        self.into_iter()
-    }
-}
-
-impl std::ops::Index<&FaceId> for FaceNormals {
-    type Output = Vec<Vector3>;
-
-    fn index(&self, index: &FaceId) -> &Self::Output {
-        &self.0[index]
-    }
-}
-
-impl<'a> IntoIterator for &'a FaceNormals {
-    type Item = (&'a FaceId, &'a Vec<Vector3>);
-
-    type IntoIter = std::collections::btree_map::Iter<'a, FaceId, Vec<Vector3>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl IntoIterator for FaceNormals {
-    type Item = (FaceId, Vec<Vector3>);
-
-    type IntoIter = std::collections::btree_map::IntoIter<FaceId, Vec<Vector3>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
+            )
+        })
+        .collect()
 }

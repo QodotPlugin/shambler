@@ -1,9 +1,10 @@
 use std::{cmp::Ordering, collections::BTreeMap};
 
-use shalrath::repr::Triangle;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
 
 use super::{FaceCenters, FaceId, FaceVertices};
-use crate::{vector3_from_point, FacePlanes};
+use crate::{vector3_from_point, FacePlanes, FaceTrianglePlanes};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum FaceWinding {
@@ -11,20 +12,21 @@ pub enum FaceWinding {
     CounterClockwise,
 }
 
-#[derive(Debug, Clone)]
-pub struct FaceIndices(BTreeMap<FaceId, Vec<usize>>);
+pub enum FaceIndicesTag {}
 
-impl FaceIndices {
-    // Generate face indices with the specified winding
-    pub fn new(
-        face_planes: &BTreeMap<FaceId, Triangle>,
-        geo_planes: &FacePlanes,
-        face_vertices: &FaceVertices,
-        face_centers: &FaceCenters,
-        winding: FaceWinding,
-    ) -> FaceIndices {
-        let mut wound_indices = BTreeMap::<FaceId, Vec<usize>>::default();
-        for (plane_id, vertices) in face_vertices.iter_vertices() {
+pub type FaceIndices = Usage<FaceIndicesTag, BTreeMap<FaceId, Vec<usize>>>;
+
+// Generate face indices with the specified winding
+pub fn face_indices(
+    face_planes: &FaceTrianglePlanes,
+    geo_planes: &FacePlanes,
+    face_vertices: &FaceVertices,
+    face_centers: &FaceCenters,
+    winding: FaceWinding,
+) -> FaceIndices {
+    face_vertices
+        .par_iter()
+        .map(|(plane_id, vertices)| {
             let face_plane = &face_planes[&plane_id];
             let plane = &geo_planes[&plane_id];
             let plane_center = &face_centers[&plane_id];
@@ -55,44 +57,7 @@ impl FaceIndices {
                 }
                 .unwrap_or(Ordering::Equal)
             });
-            wound_indices.insert(*plane_id, indices);
-        }
-        FaceIndices(wound_indices)
-    }
-
-    pub fn get(&self, face_id: &FaceId) -> Option<&Vec<usize>> {
-        self.0.get(face_id)
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-impl std::ops::Index<&FaceId> for FaceIndices {
-    type Output = Vec<usize>;
-
-    fn index(&self, index: &FaceId) -> &Self::Output {
-        &self.0[index]
-    }
-}
-
-impl<'a> IntoIterator for &'a FaceIndices {
-    type Item = (&'a FaceId, &'a Vec<usize>);
-
-    type IntoIter = std::collections::btree_map::Iter<'a, FaceId, Vec<usize>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.iter()
-    }
-}
-
-impl IntoIterator for FaceIndices {
-    type Item = (FaceId, Vec<usize>);
-
-    type IntoIter = std::collections::btree_map::IntoIter<FaceId, Vec<usize>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
-    }
+            (*plane_id, indices)
+        })
+        .collect()
 }

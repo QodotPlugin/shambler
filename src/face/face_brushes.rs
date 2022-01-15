@@ -1,19 +1,18 @@
 use std::collections::BTreeMap;
 
+use usage::Usage;
+
 use crate::{brush::BrushId, BrushFaces};
 
 use super::FaceId;
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct FaceBrushes(pub BTreeMap<FaceId, BrushId>);
+pub enum FaceBrushesTag {}
 
-impl FaceBrushes {
-    pub fn new(brush_faces: &BrushFaces) -> Self {
-        FaceBrushes(
-            brush_faces
-                .iter()
-                .flat_map(|(brush, faces)| faces.iter().map(move |face| (*face, *brush)))
-                .collect(),
-        )
-    }
+pub type FaceBrushes = Usage<FaceBrushesTag, BTreeMap<FaceId, BrushId>>;
+
+pub fn face_brushes(brush_faces: &BrushFaces) -> FaceBrushes {
+    brush_faces
+        .iter()
+        .flat_map(|(brush, faces)| faces.iter().map(move |face| (*face, *brush)))
+        .collect()
 }

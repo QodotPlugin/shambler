@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use shalrath::repr::TextureOffset;
+use usage::Usage;
 
 use crate::{face::FaceId, vector3_from_texture_plane, FacePlanes, Plane3d, Vector2, Vector3};
 
@@ -14,20 +16,21 @@ pub struct Basis {
     pub z: Vector3,
 }
 
-#[derive(Debug, Clone)]
-pub struct FaceBases(BTreeMap<FaceId, Basis>);
+pub enum FaceBasesTag {}
 
-impl FaceBases {
-    pub fn new(
-        planes: &Vec<FaceId>,
-        geo_planes: &FacePlanes,
-        face_offsets: &BTreeMap<FaceId, TextureOffset>,
-        face_angles: &BTreeMap<FaceId, f32>,
-        face_scales: &BTreeMap<FaceId, Vector2>,
-    ) -> Self {
-        let mut face_bases = BTreeMap::<FaceId, Basis>::default();
-        for plane_id in planes {
-            face_bases.insert(
+pub type FaceBases = Usage<FaceBasesTag, BTreeMap<FaceId, Basis>>;
+
+pub fn face_bases(
+    planes: &Vec<FaceId>,
+    geo_planes: &FacePlanes,
+    face_offsets: &BTreeMap<FaceId, TextureOffset>,
+    face_angles: &BTreeMap<FaceId, f32>,
+    face_scales: &BTreeMap<FaceId, Vector2>,
+) -> FaceBases {
+    planes
+        .par_iter()
+        .map(|plane_id| {
+            (
                 *plane_id,
                 face_basis(
                     &geo_planes[plane_id],
@@ -35,30 +38,12 @@ impl FaceBases {
                     face_angles[plane_id],
                     face_scales[plane_id],
                 ),
-            );
-        }
-        FaceBases(face_bases)
-    }
-
-    pub fn get(&self, face_id: &FaceId) -> Option<&Basis> {
-        self.0.get(face_id)
-    }
+            )
+        })
+        .collect()
 }
 
-impl std::ops::Index<&FaceId> for FaceBases {
-    type Output = Basis;
-
-    fn index(&self, index: &FaceId) -> &Self::Output {
-        &self.0[index]
-    }
-}
-
-fn face_basis(
-    geo_plane: &Plane3d,
-    offset: &TextureOffset,
-    angle: f32,
-    scale: Vector2,
-) -> Basis {
+fn face_basis(geo_plane: &Plane3d, offset: &TextureOffset, angle: f32, scale: Vector2) -> Basis {
     match &offset {
         shalrath::repr::TextureOffset::Standard { .. } => standard_basis(geo_plane, angle, scale),
         shalrath::repr::TextureOffset::Valve { .. } => valve_basis(geo_plane, offset),
@@ -89,29 +74,17 @@ fn standard_basis(plane: &Plane3d, angle: f32, scale: Vector2) -> Basis {
         let z = *plane.normal() * du_sign;
         let x = z.cross(forward_vector).normalize();
         let y = z.cross(right_vector).normalize();
-        Basis {
-            x,
-            y,
-            z,
-        }
+        Basis { x, y, z }
     } else if dr_abs >= du_abs && dr_abs >= df_abs {
         let z = *plane.normal() * dr_sign;
         let x = z.cross(up_vector).normalize();
         let y = z.cross(forward_vector).normalize();
-        Basis {
-            x,
-            y,
-            z,
-        }
+        Basis { x, y, z }
     } else if df_abs >= du_abs && df_abs >= dr_abs {
         let z = *plane.normal() * df_sign;
         let x = z.cross(up_vector).normalize();
         let y = z.cross(right_vector).normalize();
-        Basis {
-            x,
-            y,
-            z,
-        }
+        Basis { x, y, z }
     } else {
         panic!("Failed to generate basis")
     }

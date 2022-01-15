@@ -1,22 +1,23 @@
 use std::collections::BTreeMap;
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+use usage::Usage;
+
 use super::BrushId;
 use crate::{
     face::{FaceCenters, FaceId},
     Vector3,
 };
 
-#[derive(Debug, Clone)]
-pub struct BrushCenters(BTreeMap<BrushId, Vector3>);
+pub enum BrushCentersTag {}
 
-impl BrushCenters {
-    // Calculate brush centers
-    pub fn new(
-        brush_planes: &BTreeMap<BrushId, Vec<FaceId>>,
-        face_centers: &FaceCenters,
-    ) -> Self {
-        let mut brush_centers = BTreeMap::<BrushId, Vector3>::default();
-        for (brush_id, plane_ids) in brush_planes {
+pub type BrushCenters = Usage<BrushCentersTag, BTreeMap<BrushId, Vector3>>;
+
+// Calculate brush centers
+pub fn brush_centers(brush_planes: &BTreeMap<BrushId, Vec<FaceId>>, face_centers: &FaceCenters) -> BrushCenters {
+    brush_planes
+        .par_iter()
+        .map(|(brush_id, plane_ids)| {
             let mut center = Vector3::zeros();
 
             for plane_id in plane_ids {
@@ -24,20 +25,8 @@ impl BrushCenters {
             }
             center /= plane_ids.len() as f32;
 
-            brush_centers.insert(*brush_id, center);
-        }
-        BrushCenters(brush_centers)
-    }
-
-    pub fn get(&self, brush_id: &BrushId) -> Option<&Vector3> {
-        self.0.get(brush_id)
-    }
+            (*brush_id, center)
+        })
+        .collect()
 }
 
-impl std::ops::Index<&BrushId> for BrushCenters {
-    type Output = Vector3;
-
-    fn index(&self, index: &BrushId) -> &Self::Output {
-        &self.0[index]
-    }
-}

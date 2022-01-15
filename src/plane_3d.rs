@@ -1,5 +1,5 @@
 use crate::{vector3_from_point, Vector3, EPSILON};
-use shalrath::repr::{TexturePlane, Triangle};
+use shalrath::repr::{TexturePlane, TrianglePlane};
 
 #[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Plane3d {
@@ -38,8 +38,8 @@ impl Plane3d {
     }
 }
 
-impl From<&Triangle> for Plane3d {
-    fn from(t: &Triangle) -> Self {
+impl From<&TrianglePlane> for Plane3d {
+    fn from(t: &TrianglePlane) -> Self {
         let v0 = vector3_from_point(t.v0);
         let v1 = vector3_from_point(t.v1);
         let v2 = vector3_from_point(t.v2);
