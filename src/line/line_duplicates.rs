@@ -2,11 +2,11 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::BTreeSet;
 use usage::Usage;
 
-use super::{LineId, Lines};
+use super::{line_eq, LineId, Lines};
 
 use crate::{
     face::{FaceDuplicates, FaceLines, FaceVertices},
-    BrushFaces, Brushes, Vector3, EPSILON,
+    BrushFaces, Brushes,
 };
 
 pub enum LineDuplicatesTag {}
@@ -40,8 +40,8 @@ pub fn line_duplicates(
                         let line_a = lines[line_id_a];
 
                         // Fetch LHS line vertices
-                        let v0_a = verts_a[line_a.i0];
-                        let v1_a = verts_a[line_a.i1];
+                        let v0_a = &verts_a[line_a.i0];
+                        let v1_a = &verts_a[line_a.i1];
 
                         // Iterate over brushes again to compare
                         brushes
@@ -73,8 +73,8 @@ pub fn line_duplicates(
                                                     let line_b = lines[line_id_b];
 
                                                     // Fetch RHS line vertices
-                                                    let v0_b = verts_b[line_b.i0];
-                                                    let v1_b = verts_b[line_b.i1];
+                                                    let v0_b = &verts_b[line_b.i0];
+                                                    let v1_b = &verts_b[line_b.i1];
 
                                                     // If the lines are equivalent, add them to the set
                                                     if line_eq(v0_a, v1_a, v0_b, v1_b) {
@@ -96,14 +96,4 @@ pub fn line_duplicates(
                 })
         })
         .collect()
-}
-
-fn line_eq(a0: Vector3, a1: Vector3, b0: Vector3, b1: Vector3) -> bool {
-    if (a0 - b0).magnitude() < EPSILON && (a1 - b1).magnitude() < EPSILON {
-        true
-    } else if (a0 - b1).magnitude() < EPSILON && (a1 - b0).magnitude() < EPSILON {
-        true
-    } else {
-        false
-    }
 }

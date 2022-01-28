@@ -1,3 +1,4 @@
+//! Lookup table from LineId to its parent FaceId
 use std::collections::BTreeMap;
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};

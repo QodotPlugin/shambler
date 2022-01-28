@@ -1,56 +1,88 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, VecDeque};
 
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use usage::Usage;
 
-use super::{FaceDuplicates, FaceId};
-use crate::{face::FaceLines, line::LineDuplicates, BrushFaces, Brushes};
+use super::{FaceCenters, FaceId, FaceNormals};
+use crate::{
+    face::FaceLines,
+    line::{LineFaceConnections, NonManifoldLines},
+    Faces,
+};
 
 pub enum InteriorFacesTag {}
 
 pub type InteriorFaces = Usage<InteriorFacesTag, BTreeSet<FaceId>>;
 
 pub fn interior_faces(
-    brushes: &Brushes,
-    brush_faces: &BrushFaces,
-    face_duplicates: &FaceDuplicates,
+    faces: &Faces,
     face_lines: &FaceLines,
-    line_duplicates: &LineDuplicates,
+    face_normals: &FaceNormals,
+    face_centers: &FaceCenters,
+    non_manifold_lines: &NonManifoldLines,
+    line_face_connections: &LineFaceConnections,
 ) -> InteriorFaces {
-    // Iterate over the entity's brushes
-    brushes
+    let mut interior_faces = BTreeSet::default();
+
+    // Find faces whose lines are all non-manifold
+    let starting_faces = faces
         .par_iter()
-        .flat_map(|brush_a| {
-            let faces_a = &brush_faces[brush_a];
+        .flat_map(|face| {
+            let lines = face_lines.get(&face).unwrap();
 
-            // Iterate over LHS brush faces
-            faces_a
+            let non_manifold: usize = lines
                 .par_iter()
-                .filter(|f| !face_duplicates.par_iter().any(|(a, _)| a == *f))
-                .map(|face_a| {
-                    // Fetch LHS vertex and line data
-                    let lines_a = face_lines.get(&face_a).unwrap();
+                .map(|line_id| non_manifold_lines.contains(line_id) as usize)
+                .sum();
 
-                    // Calculate whether this is an interior face
-                    let connected_lines: usize = lines_a
-                        .par_iter()
-                        .map(|line_id_a| {
-                            if line_duplicates.par_iter().any(|(a, _)| a == line_id_a) {
-                                1
-                            } else {
-                                0
-                            }
-                        })
-                        .sum();
-
-                    // If all of this face's lines are connected, add it to the interior set
-                    if connected_lines >= lines_a.len() {
-                        Some(*face_a)
-                    } else {
-                        None
-                    }
-                })
+            if non_manifold == lines.len() {
+                Some(*face)
+            } else {
+                None
+            }
         })
-        .flatten()
-        .collect()
+        .collect::<BTreeSet<_>>();
+
+    // Initialize the traversal queue with the non-manifold faces
+    let mut traversal_queue = starting_faces.iter().copied().collect::<VecDeque<_>>();
+
+    // Traverse
+    while let Some(face) = traversal_queue.pop_front() {
+        if interior_faces.contains(&face) {
+            continue;
+        }
+
+        interior_faces.insert(face);
+
+        let face_normal = face_normals[&face][0];
+
+        for line_id in &face_lines[&face] {
+            let mut connected_faces = line_face_connections[line_id]
+                .iter()
+                .filter(|candidate| **candidate != face);
+
+            let non_manifold = non_manifold_lines.contains(line_id);
+            if non_manifold {
+                // Pick closest face via normal
+                let mut connected_faces = connected_faces.copied().collect::<Vec<_>>();
+                connected_faces.sort_unstable_by(|lhs, rhs| {
+                    let lhs_face_center = face_centers[lhs] - face_centers[&face];
+                    let rhs_face_center = face_centers[rhs] - face_centers[&face];
+
+                    face_normal
+                        .dot(&rhs_face_center)
+                        .partial_cmp(&face_normal.dot(&lhs_face_center))
+                        .unwrap()
+                });
+                traversal_queue.push_back(connected_faces[0]);
+            } else {
+                // Traverse directly
+                if let Some(connected_face) = connected_faces.next() {
+                    traversal_queue.push_back(*connected_face);
+                }
+            }
+        }
+    }
+
+    interior_faces.into()
 }

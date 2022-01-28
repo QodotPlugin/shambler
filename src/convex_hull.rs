@@ -14,7 +14,7 @@ impl ConvexHull {
     pub fn contains(&self, vertex: &Vector3) -> bool {
         for plane in &self.0 {
             let proj = plane.normal().dot(vertex);
-            if proj > plane.distance() && proj - plane.distance() > EPSILON {
+            if proj > plane.distance() && (proj - plane.distance()).abs() > EPSILON {
                 return false;
             }
         }

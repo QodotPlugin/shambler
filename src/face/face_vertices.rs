@@ -34,39 +34,32 @@ pub fn face_vertices(
                 }
             });
 
+            // Create world vertices via triplanar intersection
             face_ids.par_iter().map(move |face_id| {
                 let plane = &face_planes[face_id];
-                let mut verts = intersect_planes(*face_id, *plane, plane_iter.clone(), hull);
+                let p0_id = *face_id;
+                let p0 = *plane;
+                let mut verts = plane_iter
+                    .clone()
+                    .flat_map(|(p1_id, p1)| {
+                        plane_iter.clone().map(move |(p2_id, p2)| {
+                            if let Some(position) = triplanar_intersection(&p0, &p1, &p2) {
+                                if hull.contains(&position) {
+                                    return Some(((p0_id, p1_id, p2_id), position));
+                                }
+                            }
+
+                            None
+                        })
+                    })
+                    .flatten()
+                    .collect::<Vec<_>>();
                 verts.dedup_by(|(_, lhs), (_, rhs)| lhs == rhs);
                 let (vert_planes, verts) = verts.into_iter().unzip();
                 ((*face_id, verts), (*face_id, vert_planes))
             })
         })
         .unzip()
-}
-
-// Create world vertices via triplanar intersection
-pub fn intersect_planes<'a, I: ParallelIterator<Item = (FaceId, Plane3d)> + Clone + Sync>(
-    p0_id: FaceId,
-    p0: Plane3d,
-    planes: I,
-    hull: &ConvexHull,
-) -> Vec<((FaceId, FaceId, FaceId), Vector3)> {
-    planes
-        .clone()
-        .flat_map(move |(p1_id, p1)| {
-            planes.clone().map(move |(p2_id, p2)| {
-                if let Some(position) = triplanar_intersection(&p0, &p1, &p2) {
-                    if hull.contains(&position) {
-                        return Some(((p0_id, p1_id, p2_id), position));
-                    }
-                }
-
-                None
-            })
-        })
-        .flatten()
-        .collect()
 }
 
 pub fn triplanar_intersection(p0: &Plane3d, p1: &Plane3d, p2: &Plane3d) -> Option<Vector3> {
